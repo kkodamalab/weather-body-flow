@@ -1,1 +1,0 @@
-export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n)); export const smoothstep=(a,b,x)=>{x=clamp((x-a)/(b-a),0,1);return x*x*(3-2*x)}; export const len=v=>Math.hypot(v.x,v.y,v.z); export const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}); export const mix=(a,b,t)=>a+(b-a)*t;
