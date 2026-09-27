@@ -6,6 +6,7 @@ export class ParticleEngine {
     this.config = config;
     this.camera = camera;
     this.field = field;
+    this.baseSpeed = 1;
     this.setCount(count);
   }
 
@@ -38,7 +39,7 @@ export class ParticleEngine {
     this.camera.advance(dt, this.particles);
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
-      if (running) p.z -= .5 * dt;
+      if (running && (window.__weatherFlow?.flow?.base ?? true)) p.z -= .5 * dt * this.baseSpeed;
       if (this.field) { const v=this.field(p); p.x += v.x*dt; p.y += v.y*dt; p.z += v.z*dt; }
       const v = project(p, this.camera, c);
       if (v.z < c.near || v.z > c.far || v.x < 0 || v.x > c.width || v.y < 0 || v.y > c.height) {
