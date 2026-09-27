@@ -1,1 +1,47 @@
-export class ParticleEngine{constructor(count,config){this.config=config;this.setCount(count)}setCount(n){this.particles=Array.from({length:n},()=>this.spawn())}spawn(){let c=this.config(),z=c.near+Math.random()*(c.far-c.near),f=c.focal,sx=Math.random()*c.width,sy=Math.random()*c.height;return{x:(sx-c.foeX*c.width)*z/f,y:(sy-c.foeY*c.height)*z/f,z,velocity:.35+Math.random()*.75}}update(dt){let c=this.config();for(let i=0;i<this.particles.length;i++){let p=this.particles[i];p.z-=p.velocity*dt*4;if(p.z<c.near)p=this.particles[i]=this.spawn()}}}
+// Port of Visual Motion Lab e551b183 rand/newCloud/spawn3D and 3D advance.
+import { project } from './optic-flow.js';
+
+export class ParticleEngine {
+  constructor(count, config, camera) {
+    this.config = config;
+    this.camera = camera;
+    this.setCount(count);
+  }
+
+  random() {
+    this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
+    return this.seed / 4294967296;
+  }
+
+  setCount(count) {
+    this.seed = 1975;
+    const c = this.config();
+    this.particles = Array.from({ length: count }, () => {
+      // Preserve the reference newCloud random sequence (its initial 2D samples).
+      this.random(); this.random();
+      return this.spawn(c);
+    });
+  }
+
+  spawn(c) {
+    const z = c.near + this.random() * (c.far - c.near);
+    return this.camera.fromCamera({
+      x: (this.random() * c.width - c.width * c.foeX) * z / c.focal,
+      y: (this.random() * c.height - c.height * c.foeY) * z / c.focal,
+      z,
+    });
+  }
+
+  update(dt, running = true) {
+    const c = this.config();
+    this.camera.advance(dt, this.particles);
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (running) p.z -= .5 * dt;
+      const v = project(p, this.camera, c);
+      if (v.z < c.near || v.z > c.far || v.x < 0 || v.x > c.width || v.y < 0 || v.y > c.height) {
+        this.particles[i] = this.spawn(c);
+      }
+    }
+  }
+}
