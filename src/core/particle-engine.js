@@ -2,9 +2,10 @@
 import { project } from './optic-flow.js';
 
 export class ParticleEngine {
-  constructor(count, config, camera) {
+  constructor(count, config, camera, field = null) {
     this.config = config;
     this.camera = camera;
+    this.field = field;
     this.setCount(count);
   }
 
@@ -38,6 +39,7 @@ export class ParticleEngine {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       if (running) p.z -= .5 * dt;
+      if (this.field) { const v=this.field(p); p.x += v.x*dt; p.y += v.y*dt; p.z += v.z*dt; }
       const v = project(p, this.camera, c);
       if (v.z < c.near || v.z > c.far || v.x < 0 || v.x > c.width || v.y < 0 || v.y > c.height) {
         this.particles[i] = this.spawn(c);

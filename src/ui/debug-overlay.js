@@ -1,0 +1,1 @@
+export class DebugOverlay { constructor(root){this.root=root;} update(data){if(this.root)this.root.textContent=`CAMERA: ${data.camera} · POSE: ${data.pose} · DETECTION: ${data.detected?'YES':'NO'}\nBODY AXIS: ${data.axis?'READY':'—'} · LEFT WRIST: ${data.left?'READY':'—'} · RIGHT WRIST: ${data.right?'READY':'—'}`;} }

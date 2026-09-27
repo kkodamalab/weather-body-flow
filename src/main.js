@@ -2,34 +2,28 @@ import { ParticleEngine } from './core/particle-engine.js';
 import { CameraController } from './core/camera-controller.js';
 import { OpticFlowRenderer } from './core/optic-flow.js';
 import { setupControls } from './ui/controls.js';
+import { PoseTracker } from './tracking/mediapipe-pose.js';
+import { BodyAxisTracker } from './tracking/body-axis.js';
+import { HandTracker } from './tracking/hand-tracking.js';
+import { BodyField } from './fields/body-field.js';
+import { HandField } from './fields/hand-field.js';
+import { EnvironmentField } from './fields/environment-field.js';
+import { WeatherService } from './weather/weather-service.js';
+import { DebugOverlay } from './ui/debug-overlay.js';
 
-const canvas = document.querySelector('#flow-canvas');
-const renderer = new OpticFlowRenderer(canvas); // Size the canvas before seeding.
-const camera = new CameraController(canvas);
-const inputs = Object.fromEntries([...document.querySelectorAll('input')].map(input => [input.id, input]));
-function config() {
-  const value = id => Number(inputs[id].value);
-  const width = renderer.width, height = renderer.height;
-  const near = value('near'), far = Math.max(near + 1, value('far'));
-  return { width, height, near, far, fov: value('fov'), foeX: value('foeX'), foeY: value('foeY'),
-    color: inputs.color.value, background: inputs.background.value, opacity: value('opacity'),
-    size: value('size'), glow: value('glow'), focal: width / (2 * Math.tan(value('fov') * Math.PI / 360)) };
-}
-const engine = new ParticleEngine(Number(inputs.count.value), config, camera);
-let paused = false, last = performance.now(), frames = 0, lastFps = last;
-const resetCloud = () => engine.setCount(Number(inputs.count.value));
-setupControls({ resetCloud, resetView: () => { camera.reset(); resetCloud(); }, togglePause: v => { paused = v; } });
-function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000);
-  last = now;
-  if (renderer.resize()) resetCloud();
-  engine.update(dt, !paused);
-  canvas.dataset.visibleParticles = renderer.render(engine.particles, camera, config());
-  frames++;
-  if (now - lastFps > 500) {
-    document.querySelector('#fps').textContent = `${Math.round(frames * 1000 / (now - lastFps))} FPS`;
-    frames = 0; lastFps = now;
-  }
-  requestAnimationFrame(frame);
-}
+const canvas=document.querySelector('#flow-canvas'), $=id=>document.getElementById(id);
+const style=document.createElement('style'); style.textContent='#tracking-panel{position:fixed;z-index:3;right:18px;top:58px;width:280px;max-height:calc(100vh - 78px);overflow:auto;padding:12px;background:#07131ddd;border:1px solid #244755;backdrop-filter:blur(9px);color:#acc2cc;font-size:11px}#tracking-panel h2{margin:0 0 8px;color:#75bfd2;font-size:12px}#tracking-panel button,#tracking-panel select{background:#0b1a24;color:#d8edf2;border:1px solid #315462;padding:6px;margin:2px;font:inherit}#tracking-panel label{display:grid;gap:3px;margin:7px 0}#tracking-panel input[type=range]{width:100%;accent-color:#69e8df}#camera-preview{position:fixed;z-index:4;right:18px;bottom:18px;width:220px;aspect-ratio:4/3;object-fit:cover;border:1px solid #69e8df;transform:scaleX(-1);background:#07131d}#camera-preview.hidden,#skeleton-canvas.hidden{display:none}#skeleton-canvas{position:fixed;inset:0;z-index:2;pointer-events:none;width:100%;height:100%}#debug-overlay{white-space:pre-wrap;color:#d7f6a0}';document.head.append(style);
+const renderer=new OpticFlowRenderer(canvas),camera=new CameraController(canvas),video=$('camera-preview'),skeleton=$('skeleton-canvas');
+const inputs=Object.fromEntries([...document.querySelectorAll('input')].map(i=>[i.id,i]));
+function config(){const n=id=>Number(inputs[id].value),width=renderer.width,height=renderer.height,fov=n('fov'),near=n('near'),far=Math.max(near+1,n('far'));return{width,height,near,far,fov,foeX:n('foeX'),foeY:n('foeY'),color:inputs.color.value,background:inputs.background.value,opacity:n('opacity'),size:n('size'),glow:n('glow'),focal:width/(2*Math.tan(fov*Math.PI/360))};}
+const bodyAxis=new BodyAxisTracker(),hands=new HandTracker(),bodyField=new BodyField(),handField=new HandField(),environment=new EnvironmentField(),weather=new WeatherService();
+const field=p=>{const a=bodyField.sample(),h=handField.sample(p),e=environment.sample();const viscosity=Number(inputs.viscosity.value);return{x:(a.x+h.x+e.x)*(1-viscosity),y:(a.y+h.y+e.y)*(1-viscosity),z:(a.z+h.z+e.z)*(1-viscosity)};};
+const engine=new ParticleEngine(Number(inputs.count.value),config,camera,field),pose=new PoseTracker(video),debug=new DebugOverlay($('debug-overlay'));
+let cameraStream=null, cameraState='OFF',skeletonOn=false,debugOn=true,paused=false,last=performance.now(),frames=0,lastFps=last;
+function drawSkeleton(){const dpr=devicePixelRatio||1; skeleton.width=innerWidth*dpr;skeleton.height=innerHeight*dpr;const c=skeleton.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,innerWidth,innerHeight);if(!skeletonOn||!pose.landmarks)return;const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[23,24],[11,23],[12,24],[23,25],[25,27],[24,26],[26,28]];const point=i=>({x:(1-pose.landmarks[i].x)*innerWidth,y:pose.landmarks[i].y*innerHeight});c.strokeStyle='#70f0dc';c.lineWidth=2;for(const [a,b] of links){const p=point(a),q=point(b);c.beginPath();c.moveTo(p.x,p.y);c.lineTo(q.x,q.y);c.stroke();}c.fillStyle='#ffe875';for(const i of [0,11,12,13,14,15,16,23,24,25,26,27,28]){const p=point(i);c.beginPath();c.arc(p.x,p.y,4,0,Math.PI*2);c.fill();}}
+async function startCamera(){try{cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});video.srcObject=cameraStream;cameraState='ON';$('display-status').textContent='CAMERA: ON · POSE: '+pose.state;}catch(error){cameraState='ERROR';$('display-status').textContent='CAMERA: ERROR · PARTICLE: READY';}}
+function stopCamera(){cameraStream?.getTracks().forEach(t=>t.stop());cameraStream=null;video.srcObject=null;cameraState='OFF';}
+function bindTracking(){ $('camera-start').onclick=startCamera;$('camera-toggle').onclick=()=>{stopCamera();};$('mirror').onchange=()=>video.style.transform=inputs.mirror.checked?'scaleX(-1)':'none';$('camera-preview-toggle').onclick=()=>{video.classList.toggle('hidden');$('camera-preview-toggle').textContent=video.classList.contains('hidden')?'SHOW CAMERA PREVIEW':'HIDE CAMERA PREVIEW';};$('skeleton-toggle').onclick=()=>{skeletonOn=!skeletonOn;$('skeleton-toggle').textContent=skeletonOn?'SKELETON ON':'SKELETON OFF';};$('calibrate').onclick=()=>bodyAxis.calibrate();$('debug-toggle').onclick=()=>{debugOn=!debugOn;$('debug-overlay').hidden=!debugOn;};inputs['body-influence'].oninput=()=>bodyField.influence=Number(inputs['body-influence'].value);inputs['body-smoothing'].oninput=()=>bodyField.smoothing=Number(inputs['body-smoothing'].value);inputs['body-response'].oninput=()=>bodyField.response=Number(inputs['body-response'].value);inputs['left-influence'].oninput=()=>handField.leftInfluence=Number(inputs['left-influence'].value);inputs['right-influence'].oninput=()=>handField.rightInfluence=Number(inputs['right-influence'].value);inputs['hand-radius'].oninput=()=>handField.radius=Number(inputs['hand-radius'].value);inputs['vortex-strength'].oninput=()=>handField.vortexStrength=Number(inputs['vortex-strength'].value);$('wind-mode').onchange=async()=>{const mode=$('wind-mode').value;if(mode==='OFF'){environment.enabled=false;return;}if(mode==='MANUAL'){environment.enabled=true;return;}try{const wind=await weather.locateAndLoad();const rad=(wind.direction+180)*Math.PI/180;environment.vector={x:Math.sin(rad),y:0,z:Math.cos(rad)};environment.strength=wind.speed/10;environment.enabled=true;}catch(error){$('display-status').textContent='WEATHER: ERROR · PARTICLE: READY';}}}
+setupControls({resetCloud:()=>engine.setCount(Number(inputs.count.value)),resetView:()=>{camera.reset();engine.setCount(Number(inputs.count.value));},togglePause:v=>paused=v});bindTracking();
+async function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(renderer.resize())engine.setCount(Number(inputs.count.value));if(cameraState==='ON'&&pose.state==='IDLE')await pose.initialize();if(cameraState==='ON'){const result=pose.detect(now);if(result?.worldLandmarks?.[0]){const axis=bodyAxis.update(result.worldLandmarks[0],dt);hands.update(result.worldLandmarks[0],dt);bodyField.update(bodyAxis.relative());handField.update(hands);}}if(!paused)engine.update(dt,true);canvas.dataset.visibleParticles=renderer.render(engine.particles,camera,config());drawSkeleton();frames++;if(now-lastFps>500){const fps=Math.round(frames*1000/(now-lastFps));$('fps').textContent=`${fps} FPS`;frames=0;lastFps=now;}debug.update({camera:cameraState,pose:pose.state,detected:Boolean(pose.landmarks),axis:bodyAxis.current,left:hands.left,right:hands.right});requestAnimationFrame(frame);}
 requestAnimationFrame(frame);

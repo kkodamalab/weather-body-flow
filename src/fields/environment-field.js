@@ -1,0 +1,1 @@
+export class EnvironmentField { constructor(){this.enabled=false;this.vector={x:0,y:0,z:0};this.strength=1;} sample(){return this.enabled?{x:this.vector.x*this.strength,y:this.vector.y*this.strength,z:this.vector.z*this.strength}:{x:0,y:0,z:0};} }

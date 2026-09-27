@@ -2,7 +2,7 @@ export function setupControls({ resetCloud, resetView, togglePause }) {
   const $ = id => document.getElementById(id);
   for (const input of document.querySelectorAll('input[type=range]')) {
     const output = document.querySelector(`output[for="${input.id}"]`);
-    const show = () => { output.textContent = input.value; };
+    const show = () => { if (output) output.textContent = input.value; };
     input.addEventListener('input', () => {
       show();
       if (['count', 'near', 'far', 'fov', 'foeX', 'foeY'].includes(input.id)) resetCloud();
