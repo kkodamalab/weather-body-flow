@@ -1,5 +1,15 @@
 export function setupControls({ resetCloud, resetView, togglePause }) {
   const $ = id => document.getElementById(id);
+  const preview = document.getElementById('camera-preview');
+  const tracking = document.getElementById('tracking-panel');
+  if (preview && tracking && !document.getElementById('preview-size')) {
+    const label = document.createElement('label');
+    label.textContent = 'Preview Size ';
+    const input = document.createElement('input');
+    input.id = 'preview-size'; input.type = 'range'; input.min = '120'; input.max = '420'; input.step = '10'; input.value = '220';
+    label.append(input); tracking.insertBefore(label, document.getElementById('skeleton-toggle'));
+    input.addEventListener('input', () => { preview.style.width = `${input.value}px`; });
+  }
   for (const input of document.querySelectorAll('input[type=range]')) {
     const output = document.querySelector(`output[for="${input.id}"]`);
     const show = () => { if (output) output.textContent = input.value; };

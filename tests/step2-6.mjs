@@ -6,6 +6,8 @@ import { EnvironmentField } from '../src/fields/environment-field.js';
 import { WeatherService } from '../src/weather/weather-service.js';
 
 const world = Array.from({length:33},(_,i)=>({x:i===23?-.2:i===24?.2:0,y:i===0?-1:0,z:i===15?2:i===16?2:0,visibility:1}));
+assert.equal(world.length, 33, 'pose mock must provide all 33 landmarks');
+assert(world[0] && world[15] && world[16] && world[23] && world[24], 'pose landmarks required for overlay');
 const axis = new BodyAxisTracker();
 assert(axis.update(world,.016)); axis.calibrate(); world[15].x += .5; world[16].x -= .5;
 const relative = axis.update(world,.016); assert(relative && Number.isFinite(relative.velocity.x));
