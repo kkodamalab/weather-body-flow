@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { PoseTracker } from '../src/tracking/mediapipe-pose.js';
+const video={readyState:4,videoWidth:640};
+const tracker=new PoseTracker(video);
+tracker.landmarker={detectForVideo(){return {landmarks:[Array.from({length:33},(_,i)=>({x:i/32,y:(32-i)/32,z:0,visibility:1}))],worldLandmarks:[Array.from({length:33},()=>({x:0,y:0,z:0,visibility:1}))]};}};
+const result=tracker.detect(1000);
+assert.equal(result.landmarks[0].length,33);
+assert.equal(tracker.landmarkCount,33);
+assert.equal(tracker.worldLandmarks.length,33);
+tracker.detect(1016);
+assert(tracker.fps>0);
+console.log('Pose mock checks passed',JSON.stringify({landmarks:tracker.landmarkCount,fps:tracker.fps}));
