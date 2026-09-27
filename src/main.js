@@ -11,11 +11,13 @@ import { EnvironmentField } from './fields/environment-field.js';
 import { WeatherService } from './weather/weather-service.js';
 import { DebugOverlay } from './ui/debug-overlay.js';
 import { setupCameraPreview } from './ui/camera-preview.js';
+import { setupDemoSkeleton } from './ui/demo-skeleton.js';
 
 const canvas=document.querySelector('#flow-canvas'),$=id=>document.getElementById(id);
 const style=document.createElement('style');style.textContent='#tracking-panel{position:fixed;z-index:6;right:18px;top:58px;width:280px;max-height:calc(100vh - 78px);overflow:auto;padding:12px;background:#07131ddd;border:1px solid #244755;backdrop-filter:blur(9px);color:#acc2cc;font-size:11px}#tracking-panel h2{margin:0 0 8px;color:#75bfd2;font-size:12px}#tracking-panel button,#tracking-panel select{background:#0b1a24;color:#d8edf2;border:1px solid #315462;padding:6px;margin:2px;font:inherit}#tracking-panel label{display:grid;gap:3px;margin:7px 0}#tracking-panel input[type=range]{width:100%;accent-color:#69e8df}#camera-preview{position:fixed;z-index:4;right:18px;bottom:18px;width:220px;aspect-ratio:4/3;object-fit:cover;border:1px solid #69e8df;transform:scaleX(-1);background:#07131d}#camera-preview.hidden,#skeleton-canvas.hidden{display:none}#skeleton-canvas{position:fixed;inset:0;z-index:5;pointer-events:none;width:100%;height:100%}#debug-overlay{white-space:pre-wrap;color:#d7f6a0}';document.head.append(style);
 const renderer=new OpticFlowRenderer(canvas),camera=new CameraController(canvas),video=$('camera-preview'),skeleton=$('skeleton-canvas'),inputs=Object.fromEntries([...document.querySelectorAll('input')].map(i=>[i.id,i]));
 const previewShell=setupCameraPreview(video,skeleton,$('tracking-panel'));
+setupDemoSkeleton($('tracking-panel'),canvas);
 function config(){const n=id=>Number(inputs[id].value),width=renderer.width,height=renderer.height,fov=n('fov'),near=n('near'),far=Math.max(near+1,n('far'));return{width,height,near,far,fov,foeX:n('foeX'),foeY:n('foeY'),color:inputs.color.value,background:inputs.background.value,opacity:n('opacity'),size:n('size'),glow:n('glow'),focal:width/(2*Math.tan(fov*Math.PI/360))};}
 const bodyAxis=new BodyAxisTracker(),hands=new HandTracker(),bodyField=new BodyField(),handField=new HandField(),environment=new EnvironmentField(),weather=new WeatherService();
 const field=p=>{const a=bodyField.sample(),h=handField.sample(p),e=environment.sample(),v=Number(inputs.viscosity.value);return{x:(a.x+h.x+e.x)*(1-v),y:(a.y+h.y+e.y)*(1-v),z:(a.z+h.z+e.z)*(1-v)}};
